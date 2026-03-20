@@ -1,0 +1,22 @@
+{
+  "name": "channel-slack",
+  "version": "0.0.1",
+  "description": "Slack DM channel for Claude Code — two-way messaging via Socket Mode",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/slack-channel.js",
+    "dev": "npx tsx src/slack-channel.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@slack/bolt": "^4.3.0",
+    "dotenv": "^17.3.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^3.1.0"
+  }
+}
