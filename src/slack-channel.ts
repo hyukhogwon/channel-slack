@@ -1,10 +1,10 @@
 #!/usr/bin/env npx tsx
 
 import 'dotenv/config'
-import { Server } from '@modelcontextprotocol/sdk/server/index.js'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { App } from '@slack/bolt'
+import { z } from 'zod'
 
 export function validateEnv(env: Record<string, string | undefined>): void {
   if (!env.SLACK_BOT_TOKEN) throw new Error('Missing required env: SLACK_BOT_TOKEN')
@@ -64,7 +64,7 @@ if (isMain) {
     console.error('[slack-channel] WARNING: SLACK_ALLOWED_USERS is empty, all messages will be dropped')
   }
 
-  const mcp = new Server(
+  const mcp = new McpServer(
     { name: 'slack', version: '0.0.1' },
     {
       capabilities: {
@@ -84,35 +84,16 @@ if (isMain) {
     socketMode: true,
   })
 
-  mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [
-      {
-        name: 'slack_reply',
-        description: 'Send a reply message to Slack DM',
-        inputSchema: {
-          type: 'object' as const,
-          properties: {
-            channel_id: { type: 'string', description: 'Slack channel/DM ID from meta' },
-            text: { type: 'string', description: 'Message to send' },
-            thread_ts: { type: 'string', description: 'Optional. Reply in thread' },
-          },
-          required: ['channel_id', 'text'],
-        },
-      },
-    ],
-  }))
-
-  mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
-    if (req.params.name === 'slack_reply') {
-      const { channel_id, text, thread_ts } = req.params.arguments as {
-        channel_id: string
-        text: string
-        thread_ts?: string
-      }
-      await slackApp.client.chat.postMessage({ channel: channel_id, text, thread_ts })
-      return { content: [{ type: 'text' as const, text: 'sent' }] }
-    }
-    throw new Error(`unknown tool: ${req.params.name}`)
+  mcp.registerTool('slack_reply', {
+    description: 'Send a reply message to Slack DM',
+    inputSchema: {
+      channel_id: z.string().describe('Slack channel/DM ID from meta'),
+      text: z.string().describe('Message to send'),
+      thread_ts: z.string().optional().describe('Optional. Reply in thread'),
+    },
+  }, async ({ channel_id, text, thread_ts }) => {
+    await slackApp.client.chat.postMessage({ channel: channel_id, text, thread_ts })
+    return { content: [{ type: 'text' as const, text: 'sent' }] }
   })
 
   slackApp.message(async ({ message }) => {
@@ -122,7 +103,7 @@ if (isMain) {
       console.error('[slack-channel] message dropped by filter (user=%s, subtype=%s, bot_id=%s)', msg.user, msg.subtype, msg.bot_id)
       return
     }
-    mcp.notification(buildNotification(msg)).then(
+    mcp.server.notification(buildNotification(msg)).then(
       () => console.error('[slack-channel] notification sent for message from %s', msg.user),
       (err) => console.error('[slack-channel] notification error:', err),
     )
