@@ -122,12 +122,10 @@ if (isMain) {
       console.error('[slack-channel] message dropped by filter (user=%s, subtype=%s, bot_id=%s)', msg.user, msg.subtype, msg.bot_id)
       return
     }
-    try {
-      await mcp.notification(buildNotification(msg))
-      console.error('[slack-channel] notification sent for message from %s', msg.user)
-    } catch (err) {
-      console.error('[slack-channel] notification error:', err)
-    }
+    mcp.notification(buildNotification(msg)).then(
+      () => console.error('[slack-channel] notification sent for message from %s', msg.user),
+      (err) => console.error('[slack-channel] notification error:', err),
+    )
   })
 
   await mcp.connect(new StdioServerTransport())
